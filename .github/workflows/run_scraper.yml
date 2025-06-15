@@ -1,20 +1,20 @@
 name: Generate Interactive Heatmap Page
 
 on:
-  workflow_dispatch: # อนุญาตให้รัน workflow ด้วยตนเองจากแท็บ Actions
+  workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *' # รันทุก 12 ชั่วโมง (ปรับ cron expression ตามต้องการ)
+    - cron: '0 */6 * * *'
   push:
     branches:
-      - main # รันเมื่อมีการ push ไปยัง branch 'main'
+      - main
 
 jobs:
   build_and_deploy_page:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # จำเป็นสำหรับการ commit กลับไปที่ repo (ถ้าต้องการ) และสำหรับ Pages
-      pages: write    # จำเป็นสำหรับ deploy ไป GitHub Pages
-      id-token: write # จำเป็นสำหรับ deploy ไป GitHub Pages (ถ้าใช้ OIDC)
+      contents: read   # Read access to checkout
+      pages: write    # Needed to write to GitHub Pages
+      id-token: write # Needed for OIDC token for deployment
 
     steps:
       - name: Checkout repository
@@ -23,67 +23,25 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10' # หรือเวอร์ชัน Python ที่คุณต้องการ
-          # ไม่จำเป็นต้อง cache: 'pip' ถ้าไม่มี requirements.txt หรือมีแต่เป็น built-in modules
-
-      # - name: Install dependencies (ถ้ามี requirements.txt และมี dependencies)
-      #   if: hashFiles('requirements.txt') != '' # รันเฉพาะเมื่อ requirements.txt ไม่ว่าง
-      #   run: |
-      #     python -m pip install --upgrade pip
-      #     pip install -r requirements.txt
+          python-version: '3.10'
 
       - name: Generate HTML page
-        run: python gen_ht.py # รันสคริปต์ Python ของคุณ
+        run: python gen_ht.py # สคริปต์ของคุณจะสร้าง interactive_heatmap_final.html
 
-      - name: List generated files (for debugging)
+      - name: Rename HTML to index.html for GitHub Pages
+        run: mv interactive_heatmap_final.html index.html # <--- เพิ่ม step นี้
+
+      - name: List files (to verify index.html exists)
         run: ls -l
 
-      # --- วิธีที่ 1: Deploy to GitHub Pages (แนะนำสำหรับ HTML ที่ต้องการให้ public เข้าถึงได้) ---
       - name: Setup Pages
-        if: github.ref == 'refs/heads/main' # รันเฉพาะเมื่อ push ไปยัง branch 'main' หรือ trigger ที่ต้องการ
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5 # อัปเดตเป็น v5 (แนะนำ)
 
       - name: Upload artifact for GitHub Pages
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3 # หรือเวอร์ชันล่าสุด
+        uses: actions/upload-pages-artifact@v3 # อัปเดตเป็น v3 (แนะนำ)
         with:
-          # Path ไปยังไฟล์ HTML ที่สร้างขึ้น
-          # ถ้าต้องการให้ interactive_heatmap_final.html เป็นหน้าหลักของ site ให้ path เป็น .
-          # และ rename ไฟล์เป็น index.html ก่อน หรือ configure Pages ให้ใช้ชื่อไฟล์นี้
-          path: ./interactive_heatmap_final.html # หรือถ้าต้องการให้เป็น index ให้ rename เป็น index.html ก่อน
-          # หรือถ้าจะเก็บในโฟลเดอร์ย่อย:
-          # path: ./output_html/ # แล้วย้ายไฟล์ HTML ไปที่ output_html/index.html
+          path: ./index.html # Path ไปยังไฟล์ index.html ที่ root ของ workspace
 
       - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/main'
         id: deployment
-        uses: actions/deploy-pages@v4
-
-      # --- วิธีที่ 2: Commit ไฟล์ HTML กลับไปยัง Repository (ทางเลือก ถ้าไม่ใช้ Pages) ---
-      # - name: Commit and push HTML file
-      #   if: github.ref == 'refs/heads/main' # หรือ trigger ที่ต้องการ
-      #   run: |
-      #     git config --global user.name 'github-actions[bot]'
-      #     git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-      #     # อาจจะต้องสร้าง sub-directory ถ้าต้องการเก็บไฟล์ HTML แยก เช่น 'generated_pages/'
-      #     # mkdir -p generated_pages
-      #     # mv interactive_heatmap_final.html generated_pages/
-      #     # git add generated_pages/interactive_heatmap_final.html
-      #     git add interactive_heatmap_final.html
-      #     # ตรวจสอบว่ามีอะไรให้ commit หรือไม่ ก่อนที่จะพยายาม commit
-      #     if ! git diff --staged --quiet; then
-      #       git commit -m "Automated: Generate interactive_heatmap_final.html"
-      #       git push
-      #     else
-      #       echo "No changes to commit for interactive_heatmap_final.html."
-      #     fi
-      #   # หมายเหตุ: การ commit กลับไปที่ repo อาจจะ trigger workflow ซ้ำถ้าตั้ง trigger on push โดยไม่ระวัง
-      #   # อาจจะต้องเพิ่ม [skip ci] ใน commit message หรือปรับ `on.push.paths-ignore`
-
-      # --- วิธีที่ 3: Upload as Artifact (สำหรับดาวน์โหลดมาดูเอง) ---
-      - name: Upload HTML as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: interactive-heatmap-html
-          path: interactive_heatmap_final.html
-          if-no-files-found: error # หรือ 'warn'
+        uses: actions/deploy-pages@v4 # อัปเดตเป็น v4 (แนะนำ)
