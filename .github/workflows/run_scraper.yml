@@ -12,9 +12,9 @@ jobs:
   build_and_deploy_page:
     runs-on: ubuntu-latest
     permissions:
-      contents: read   # Read access to checkout
-      pages: write    # Needed to write to GitHub Pages
-      id-token: write # Needed for OIDC token for deployment
+      contents: read
+      pages: write
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -26,22 +26,23 @@ jobs:
           python-version: '3.10'
 
       - name: Generate HTML page
-        run: python gen_ht.py # สคริปต์ของคุณจะสร้าง interactive_heatmap_final.html
+        run: python gen_ht.py # สร้าง interactive_heatmap_final.html
 
-      - name: Rename HTML to index.html for GitHub Pages
-        run: mv interactive_heatmap_final.html index.html # <--- เพิ่ม step นี้
-
-      - name: List files (to verify index.html exists)
-        run: ls -l
+      - name: Prepare files for GitHub Pages
+        run: |
+          mkdir -p _site # สร้าง directory ปลายทาง (ชื่อ _site เป็น convention แต่ใช้ชื่ออื่นได้)
+          mv interactive_heatmap_final.html _site/index.html # ย้ายและ rename
+          echo "Files in _site directory:"
+          ls -l _site
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5 # อัปเดตเป็น v5 (แนะนำ)
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v3 # อัปเดตเป็น v3 (แนะนำ)
+        uses: actions/upload-pages-artifact@v3 # หรือ v4 ถ้ามี
         with:
-          path: ./index.html # Path ไปยังไฟล์ index.html ที่ root ของ workspace
+          path: ./_site # <--- อัปโหลดทั้ง directory '_site'
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4 # อัปเดตเป็น v4 (แนะนำ)
+        uses: actions/deploy-pages@v4
